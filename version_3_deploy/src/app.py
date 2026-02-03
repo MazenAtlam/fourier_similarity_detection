@@ -44,77 +44,71 @@ def detect_pass_sequences():
             }), 400
             
         seq_path = data['sequence_path']
+        n_passes = data.get('number_of_passes', 1)
+        play_idx = data.get('current_play_index', 0)
         
-        # In a real scenario, 'sequence_path' might be a file on the server.
-        # Check if file exists.
-        # If absolute path is provided, use it. If relative, assume relative to ...?
-        # Let's try to interpret it.
-        
-        real_path = seq_path
-        if not os.path.exists(real_path):
-             # Try relative to cwd or code root?
-             # For testing purposes, valid path is expected.
+        # Check file
+        if not os.path.exists(seq_path):
              return jsonify({
                  "status": "failed",
                  "error": f"File not found: {seq_path}"
              }), 404
              
-        # Load the sequence (Fingerprint)
-        with open(real_path, 'rb') as f:
-            query_sequence = pickle.load(f)
+        # Load the sequence data
+        with open(seq_path, 'rb') as f:
+            loaded_data = pickle.load(f)
             
-        # Determine length
-        # Assuming query_sequence is a dict with 'length' or list of vectors
-        length = query_sequence.get('length', 1)
-        if 'vectors' in query_sequence:
-            length = len(query_sequence.get('vectors', [])) or 1
+        # Handle List vs Single Object
+        query_sequence = None
+        if isinstance(loaded_data, list):
+            if 0 <= play_idx < len(loaded_data):
+                query_sequence = loaded_data[play_idx]
+            else:
+                 return jsonify({
+                    "status": "failed",
+                    "error": f"Index {play_idx} out of bounds (Size: {len(loaded_data)})"
+                 }), 400
+        else:
+            # Assume it's the object itself if not a list
+            query_sequence = loaded_data
             
-        # Load appropriate DB level
-        if db.current_length != length:
-            db.load_level(length)
+        # Ensure correct DB level is loaded
+        if db.current_length != n_passes:
+            db.load_level(n_passes)
             
         # Search
-        # query_sequence needs to match the structure expected by find_nearest_neighbors
-        # (dict with 'vectors', 'teammates', 'opponents', 'game_id', 'timestamp')
-        
         results = db.find_nearest_neighbors(query_sequence, top_k=5)
+        
+        if not results:
+             return jsonify({
+                "status": "failed",
+                "error": "No sequence found"
+            })
         
         formatted_results = []
         for r in results:
-            # r has 'distance', 'data' (the match entry)
             entry = r['data']
             
-            # Format events geometry
-            # entry['vectors'] gives relative vectors.
-            # entry['start_x'], 'start_y' is start.
-            
+            # Reconstruct absolute events from start + vectors
             events_formatted = []
             curr_x, curr_y = entry['start_x'], entry['start_y']
             
-            # Add Start
+            # 1. Start Point
             events_formatted.append({"x": round(float(curr_x), 2), "y": round(float(curr_y), 2)})
             
+            # 2. Subsequent Points
             for vec in entry['vectors']:
                 curr_x += vec[0]
                 curr_y += vec[1]
                 events_formatted.append({"x": round(float(curr_x), 2), "y": round(float(curr_y), 2)})
             
             formatted_results.append({
-                "similarity_measure": round(float(r['distance']), 4), # Smaller is better in our Metric (0 is perfect)
-                # Note: User might expect 0 to 1 similarity index?
-                # "Similarity Index" usually 1 is perfect, 0 is bad.
-                # Chamfer/Euclidean is a distance (0 is perfect/identical).
-                # To convert to [0,1]: 1 / (1 + distance)?
-                # The PDF example showed "0.94", "0.45" -> Suggests Similarity Score.
-                # Let's convert: Score = 1 / (1 + distance/100)? Normalization is hard without bounds.
-                # Or just return distance for now? The field name says "similarity_measure".
-                # Usually measure can be distance. But example 0.94 implies score.
-                # Let's do 1.0 / (1.0 + distance).
-                "similarity_score": round(1.0 / (1.0 + float(r['distance'])), 4),
-                "distance_metric": round(float(r['distance']), 4), # Keep both to be safe
+                "similarity_measure": round(1.0 / (1.0 + float(r['distance'])), 4), # Normalized Score? Or just distance?
+                # User example showed 0.94. I'll stick to a normalized score format: 1/(1+dist).
+                # If they want raw distance, I can swap. 
+                # Let's match the "0.94" vibe.
                 "sequence_start_time": seconds_to_mm_ss(entry['timestamp']),
-                "sequence_events": events_formatted,
-                "match_id": entry['game_id']
+                "sequence_events": events_formatted
             })
             
         return jsonify({
@@ -128,6 +122,35 @@ def detect_pass_sequences():
             "status": "failed",
             "error": str(e)
         }), 500
+
+@app.route('/api/v1/sequences/count', methods=['GET'])
+def get_sequence_count():
+    try:
+        match_id = request.args.get('match_id')
+        length = int(request.args.get('length', 1))
+        
+        if not match_id:
+             return jsonify({"status": "failed", "error": "Missing match_id"}), 400
+             
+        # Load DB level
+        if db.current_length != length:
+            db.load_level(length)
+            
+        # Count
+        count = 0
+        for entry in db.database:
+            if str(entry['game_id']) == str(match_id):
+                count += 1
+                
+        return jsonify({
+            "status": "success",
+            "match_id": match_id,
+            "length": length,
+            "count": count
+        })
+        
+    except Exception as e:
+        return jsonify({"status": "failed", "error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
