@@ -11,119 +11,127 @@ const Fifa = () => {
   const [selectedResult, setSelectedResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [inputSequence, setInputSequence] = useState(null);
+  const [error, setError] = useState(null);
 
-  // const handleSearchByMetadata = async (data) => {
-  //   setIsLoading(true);
-  //   setSelectedResult(null);
-  //
-  //   try {
-  //     const response = await detectPassSequenceByMetadata(
-  //         data.players,
-  //         data.stage,
-  //         data.group,
-  //         data.date,
-  //         data.match
-  //     );
-  //
-  //     if (response.status === 'success' && response.results) {
-  //       setResults(response.results);
-  //       // Set input sequence from first result for visualization
-  //       if (response.results.length > 0) {
-  //         setInputSequence(response.results[0].inputCoordinates);
-  //       }
-  //       toast({
-  //         title: 'Search Complete',
-  //         description: `Found ${response.results.length} matching sequences.`,
-  //       });
-  //     } else {
-  //       setResults([]);
-  //       setInputSequence(null);
-  //       toast({
-  //         title: 'No Matches Found',
-  //         description: response.error || 'Try adjusting your search criteria.',
-  //         variant: 'destructive',
-  //       });
-  //     }
-  //     // eslint-disable-next-line no-unused-vars
-  //   } catch (error) {
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Failed to search sequences. Please try again.',
-  //       variant: 'destructive',
-  //     });
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-  //
-  // const handleUploadSequence = async () => {
-  //   setIsLoading(true);
-  //   setSelectedResult(null);
-  //
-  //   try {
-  //     const response = await detectPassSequenceById('mock-sequence-id');
-  //
-  //     if (response.status === 'success' && response.results) {
-  //       setResults(response.results);
-  //       if (response.results.length > 0) {
-  //         setInputSequence(response.results[0].inputCoordinates);
-  //       }
-  //       toast({
-  //         title: 'Upload Complete',
-  //         description: 'Sequence uploaded and analyzed successfully.',
-  //       });
-  //     } else {
-  //       toast({
-  //         title: 'Upload Failed',
-  //         description: 'Could not analyze the uploaded sequence.',
-  //         variant: 'destructive',
-  //       });
-  //     }
-  //     // eslint-disable-next-line no-unused-vars
-  //   } catch (error) {
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Failed to upload sequence. Please try again.',
-  //       variant: 'destructive',
-  //     });
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
+  // Helper to map API response to UI format
+  const mapApiResults = (apiData) => {
+    if (!apiData || !apiData.pass_sequences_data) return [];
+
+    return apiData.pass_sequences_data.map((item, index) => ({
+      id: index, // Use a unique ID if available from backend
+      teams: item.match_name || "Unknown Match", // Fallback if not provided
+      date: item.match_date || "Unknown Date", // Fallback
+      stage: item.match_stage || "Unknown Stage", // Fallback
+      similarityIndex: (item.similarity_measure || 0) * 100, // Convert 0-1 to 0-100%
+      sequenceFlow: item.player_sequence || ["Player A", "Player B", "Player C"], // Mock if missing
+      matchCoordinates: item.sequence_events ? item.sequence_events.map((evt, i) => ({
+        time: i, // Mock time steps if not provided
+        x: evt.x,
+        y: evt.y
+      })) : []
+    }));
+  };
+
+  const handleSearchByMetadata = async (data) => {
+    setIsLoading(true);
+    setError(null);
+    setSelectedResult(null);
+
+    try {
+      // Constructing payload based on form data
+      const payload = {
+        stage: data.stage,
+        group: data.group,
+        date: data.date,
+        match: data.match,
+        players: data.players
+      };
+
+      const response = await detectPassSequence(payload);
+
+      if (response.status === 'success' && response.pass_sequences_data) {
+        const mappedResults = mapApiResults(response);
+        setResults(mappedResults);
+
+        // Set input sequence for visualization (Mocking input coordinates for demo)
+        const mockInputCoords = data.players.map((_, i) => ({
+          time: i,
+          x: 50 + Math.random() * 20 - 10,
+          y: 50 + Math.random() * 20 - 10
+        }));
+        setInputSequence(mockInputCoords);
+
+      } else {
+        setResults([]);
+        setInputSequence(null);
+        setError(response.error || 'No matching sequences found.');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to search sequences. Please try again.');
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUploadSequence = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSelectedResult(null);
+
+    try {
+      // Using the example payload from the prompt
+      const payload = {
+        sequence_path: "/data/2022/final/arg_fra_seq_002.pkl"
+      };
+
+      const response = await detectPassSequence(payload);
+
+      if (response.status === 'success' && response.pass_sequences_data) {
+        const mappedResults = mapApiResults(response);
+        setResults(mappedResults);
+
+        // Use the first result's coordinates as a mock input for visualization demonstration
+        if (mappedResults.length > 0) {
+          setInputSequence(mappedResults[0].matchCoordinates.map(p => ({...p, x: p.x + 5, y: p.y - 5})));
+        }
+      } else {
+        setError(response.error || 'Could not analyze the sequence.');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to upload/analyze sequence.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <Layout
-      pageTitle="FIFA World Cup 2022 Sequence Detector"
-      pageDescription="Analyze and compare pass sequences from the World Cup"
-    >
-      <div className="fifa-container">
-        <div className="container">
-          {/* Loading Overlay */}
-          {isLoading && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-            </div>
-          )}
+      <Layout
+          pageTitle="FIFA World Cup 2022 Sequence Detector"
+          pageDescription="Analyze and compare pass sequences from the World Cup"
+      >
+        <div className="fifa-container">
+          <div className="container">
+            {/* Loading Overlay */}
+            {isLoading && (
+                <div className="loading-overlay">
+                  <div className="loading-spinner"></div>
+                </div>
+            )}
 
-          {/* Content */}
-          <div>
-            {/* Input Form - Full Width */}
-            <div className="form-section">
-              <FifaForm
-                // onSearchByMetadata={handleSearchByMetadata}
-                // onUploadSequence={handleUploadSequence}
-                isLoading={isLoading}
-              />
-            </div>
+            {/* Error Toast / Alert Placeholder */}
+            {error && (
+                <div className="alert alert-danger mb-4 mx-3 mx-lg-0" role="alert">
+                  {error}
+                </div>
+            )}
 
-            {/* Matching Sequences */}
-            {results.length > 0 && (
-              <div className="results-section">
-                <FifaResults
-                  results={results}
-                  selectedResult={selectedResult}
-                  onSelectResult={setSelectedResult}
-                  isLoading={isLoading}
+            {/* Content */}
+            <div>
+              {/* Input Form - Full Width */}
+              <div className="form-section">
+                <FifaForm
+                    isLoading={isLoading}
                 />
               </div>
             )}

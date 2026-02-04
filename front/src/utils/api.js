@@ -89,114 +89,31 @@ export const detectPassSequence = async (payload) => {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
 };
 
 /**
- * Detects pass sequence by metadata
- * @param {string[]} players - Array of player names
- * @param {string} stage - Match stage
- * @param {string} group - Group name
- * @param {string} date - Match date
- * @param {string} match - Match teams
- * @returns {Promise<Object>} - API response
+ * Sends a request to count the number of sequences in a specific file.
+ * @param {string} sequencePath - The path to the sequence file.
+ * @returns {Promise<Object>} - The JSON response containing sequence_count.
  */
-export const detectPassSequenceByMetadata = async (players, stage, group, date, match) => {
-  const payload = {
-    players,
-    stage,
-    group,
-    date,
-    match
-  };
-  return detectPassSequence(payload);
-};
+export const getSequenceCount = async (sequencePath) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/pass_sequences/count`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ sequence_path: sequencePath }),
+        });
 
-/**
- * Detects pass sequence by ID
- * @param {string} sequenceId - The sequence ID
- * @returns {Promise<Object>} - API response
- */
-export const detectPassSequenceById = async (sequenceId) => {
-  const payload = {
-    sequence_id: sequenceId
-  };
-  return detectPassSequence(payload);
-};
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
 
-/**
- * Submits contact form data
- * @param {Object} formData - Contact form data
- * @returns {Promise<Object>} - API response
- */
-export const submitContactForm = async (formData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contact/submit`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('API Error (Count):', error);
+        throw error;
     }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Contact Form API Error:', error);
-    throw error;
-  }
-};
-
-// Mock API functions for development (comment out when using real API)
-export const mockDetectSong = async (file) => {
-  console.log("Mock API: Analyzing audio file:", file);
-  
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        status: "success",
-        matched_songs_found: 5,
-        results: [
-          {
-            song_name: "Shape of You",
-            artist: "Ed Sheeran",
-            similarity_index: 0.89,
-            file_url: "/songs_files/shape_of_you.mp3"
-          },
-          {
-            song_name: "Blinding Lights",
-            artist: "The Weeknd",
-            similarity_index: 0.72,
-            file_url: "/songs_files/blinding_lights.mp3"
-          },
-          {
-            song_name: "Bad Guy",
-            artist: "Billie Eilish",
-            similarity_index: 0.65,
-            file_url: "/songs_files/bad_guy.mp3"
-          },
-          {
-            song_name: "Uptown Funk",
-            artist: "Mark Ronson ft. Bruno Mars",
-            similarity_index: 0.58,
-            file_url: "/songs_files/uptown_funk.mp3"
-          },
-          {
-            song_name: "Levitating",
-            artist: "Dua Lipa",
-            similarity_index: 0.52,
-            file_url: "/songs_files/levitating.mp3"
-          }
-        ]
-      });
-    }, 2000);
-  });
 };
