@@ -1,7 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Home from "../pages/Home";
-import Fifa from "../pages/fifa";
-import Songs from "../pages/songs";
+import Fifa from "../pages/Fifa";
+import Songs from "../pages/Songs";
 import Footer from "./components/layout/Footer";
 import "../styles/App.css";
 
