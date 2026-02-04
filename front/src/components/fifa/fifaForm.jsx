@@ -1,252 +1,337 @@
-import { useState } from "react";
-import {Search, Upload, Plus, X, Users, Group} from "lucide-react";
+import { useState, useEffect } from 'react';
+import { getSequenceCount, detectPassSequence } from '../../utils/api';
+import { Search } from "lucide-react";
 
-const FifaForm = ({ onSearchByMetadata, onUploadSequence, isLoading }) => {
-  const [stage, setStage] = useState("");
-  const [group, setGroup] = useState("");
-  const [date, setDate] = useState("");
-  const [match, setMatch] = useState("");
-  const [players, setPlayers] = useState([]);
-  const [playerInput, setPlayerInput] = useState("");
 
-  const stages = [
-    "Group Stage",
-    "Round of 16",
-    "Quarter-Finals",
-    "Semi-Finals",
-    "Final",
-  ];
+const stages = [
+  "Group Stage",
+  "Round of 16",
+  "Quarter-Finals",
+  "Semi-Finals",
+  "Final",
+];
 
-  const groups = ["A", "B", "C", "D", "E", "F", "G", "H"];
+const groups = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
-  const matchs = {
-    "Group Stage": {
-      "A": ["Qatar vs Ecuador", "Senegal vs Netherlands", "Qatar vs Senegal", "Netherlands vs Ecuador", "Ecuador vs Senegal", "Netherlands vs Qatar"],
-      "B": ["England vs Iran", "United States vs Wales", "Wales vs Iran", "England vs United States", "Wales vs England", "Iran vs United States"],
-      "C": ["Argentina vs Saudi Arabia", "Mexico vs Poland", "Poland vs Saudi Arabia", "Argentina vs Mexico", "Poland vs Argentina", "Saudi Arabia vs Mexico"],
-      "D": ["Denmark vs Tunisia", "France vs Australia", "Tunisia vs Australia", "France vs Denmark", "Australia vs Denmark", "Tunisia vs France"],
-      "E": ["Germany vs Japan", "Spain vs Costa Rica", "Japan vs Costa Rica", "Spain vs Germany", "Japan vs Spain", "Costa Rica vs Germany"],
-      "F": ["Morocco vs Croatia", "Belgium vs Canada", "Belgium vs Morocco", "Croatia vs Canada", "Croatia vs Belgium", "Canada vs Morocco"],
-      "G": ["Switzerland vs Cameroon", "Brazil vs Serbia", "Cameroon vs Serbia", "Brazil vs Switzerland", "Serbia vs Switzerland", "Cameroon vs Brazil"],
-      "H": ["Uruguay vs Korea Republic", "Portugal vs Ghana", "Korea Republic vs Ghana", "Portugal vs Uruguay", "Ghana vs Uruguay", "Korea Republic vs Portugal"]
-    },
-    "Round of 16": ["Netherlands vs United States", "Argentina vs Australia", "France vs Poland", "England vs Senegal", "Japan vs Croatia", "Brazil vs Korea Republic", "Morocco vs Spain", "Portugal vs Switzerland"],
-    "Quarter-Finals": ["Croatia vs Brazil", "Netherlands vs Argentina", "Morocco vs Portugal", "England vs France"],
-    "Semi-Finals": ["Argentina vs Croatia", "France vs Morocco"],
-    "Third-Place": "Croatia vs Morocco",
-    "Final": "Argentina vs France",
-  }
+const matchs = {
+  "Group Stage": {
+    "A": [
+      ["Qatar vs Ecuador (ID: 3814)", 3814],
+      ["Senegal vs Netherlands (ID: 3812)", 3812],
+      ["Qatar vs Senegal (ID: 3829)", 3829],
+      ["Netherlands vs Ecuador (ID: 3830)", 3830],
+      ["Ecuador vs Senegal (ID: 3844)", 3844],
+      ["Netherlands vs Qatar (ID: 3845)", 3845]
+    ],
+    "B": [
+      ["England vs Iran (ID: 3813)", 3813],
+      ["United States vs Wales (ID: 3815)", 3815],
+      ["Wales vs Iran (ID: 3828)", 3828],
+      ["England vs United States (ID: 3831)", 3831],
+      ["Wales vs England (ID: 3846)", 3846],
+      ["Iran vs United States (ID: 3847)", 3847]
+    ],
+    "C": [
+      ["Argentina vs Saudi Arabia (ID: 3816)", 3816],
+      ["Mexico vs Poland (ID: 3818)", 3818],
+      ["Poland vs Saudi Arabia (ID: 3833)", 3833],
+      ["Argentina vs Mexico (ID: 3835)", 3835],
+      ["Poland vs Argentina (ID: 3850)", 3850],
+      ["Saudi Arabia vs Mexico (ID: 3851)", 3851]
+    ],
+    "D": [
+      ["Denmark vs Tunisia (ID: 3817)", 3817],
+      ["France vs Australia (ID: 3819)", 3819],
+      ["Tunisia vs Australia (ID: 3832)", 3832],
+      ["France vs Denmark (ID: 3834)", 3834],
+      ["Australia vs Denmark (ID: 3848)", 3848],
+      ["Tunisia vs France (ID: 3849)", 3849]
+    ],
+    "E": [
+      ["Germany vs Japan (ID: 3821)", 3821],
+      ["Spain vs Costa Rica (ID: 3822)", 3822],
+      ["Japan vs Costa Rica (ID: 3836)", 3836],
+      ["Spain vs Germany (ID: 3839)", 3839],
+      ["Japan vs Spain (ID: 3854)", 3854],
+      ["Costa Rica vs Germany (ID: 3855)", 3855]
+    ],
+    "F": [
+      ["Morocco vs Croatia (ID: 3820)", 3820],
+      ["Belgium vs Canada (ID: 3823)", 3823],
+      ["Belgium vs Morocco (ID: 3837)", 3837],
+      ["Croatia vs Canada (ID: 3838)", 3838],
+      ["Croatia vs Belgium (ID: 3852)", 3852],
+      ["Canada vs Morocco (ID: 3853)", 3853]
+    ],
+    "G": [
+      ["Switzerland vs Cameroon (ID: 3824)", 3824],
+      ["Brazil vs Serbia (ID: 3827)", 3827],
+      ["Cameroon vs Serbia (ID: 3840)", 3840],
+      ["Brazil vs Switzerland (ID: 3842)", 3842],
+      ["Serbia vs Switzerland (ID: 3858)", 3858],
+      ["Cameroon vs Brazil (ID: 3859)", 3859]
+    ],
+    "H": [
+      ["Uruguay vs South Korea (ID: 3825)", 3825],
+      ["Portugal vs Ghana (ID: 3826)", 3826],
+      ["South Korea vs Ghana (ID: 3841)", 3841],
+      ["Portugal vs Uruguay (ID: 3843)", 3843],
+      ["Ghana vs Uruguay (ID: 3856)", 3856],
+      ["South Korea vs Portugal (ID: 3857)", 3857]
+    ]
+  },
+  "Round of 16": [
+    ["Netherlands vs United States (ID: 10502)", 10502],
+    ["Argentina vs Australia (ID: 10503)", 10503],
+    ["France vs Poland (ID: 10504)", 10504],
+    ["England vs Senegal (ID: 10505)", 10505],
+    ["Japan vs Croatia (ID: 10506)", 10506],
+    ["Brazil vs South Korea (ID: 10507)", 10507],
+    ["Morocco vs Spain (ID: 10508)", 10508],
+    ["Portugal vs Switzerland (ID: 10509)", 10509]
+  ],
+  "Quarter-Finals": [
+    ["Croatia vs Brazil (ID: 10510)", 10510],
+    ["Netherlands vs Argentina (ID: 10511)", 10511],
+    ["Morocco vs Portugal (ID: 10512)", 10512],
+    ["England vs France (ID: 10513)", 10513]
+  ],
+  "Semi-Finals": [
+    ["Argentina vs Croatia (ID: 10514)", 10514],
+    ["France vs Morocco (ID: 10515)", 10515]
+  ],
+  "Final": [
+    ["Argentina vs France (ID: 10517)", 10517],
+    ["Croatia vs Morocco (ID: 10516)", 10516]
+  ]
+};
 
-  const handleAddPlayer = () => {
-    if (playerInput.trim() && players.length < 5) {
-      setPlayers([...players, playerInput.trim()]);
-      setPlayerInput("");
+const FifaForm = ({ isLoading }) => {
+  // UI State
+  const [selectedStage, setSelectedStage] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedMatch, setSelectedMatch] = useState('');
+  const [numPasses, setNumPasses] = useState(3);
+  const [sequenceIndex, setSequenceIndex] = useState(0);
+
+  // Logic State
+  const [maxSeqIndex, setMaxSeqIndex] = useState(0);
+  const [sequencePath, setSequencePath] = useState('');
+  const [isCountLoading, setIsCountLoading] = useState(false);
+
+  // Derived options
+  const isGroupStage = selectedStage === 'Group Stage';
+
+  // 1. Handle Stage Selection
+  const handleStageChange = (e) => {
+    const newStage = e.target.value;
+    setSelectedStage(newStage);
+    setSelectedMatch(''); // Reset match when stage changes
+    // If not group stage, reset group
+    if (newStage !== 'Group Stage') {
+      setSelectedGroup('');
     }
   };
 
-  const handleRemovePlayer = (index) => {
-    setPlayers(players.filter((_, i) => i !== index));
+  // 2. Handle Group Selection
+  const handleGroupChange = (e) => {
+    setSelectedGroup(e.target.value);
+    setSelectedMatch(''); // Reset match when group changes
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddPlayer();
+  // Helper: Get available matches based on selection
+  const getMatchOptions = () => {
+    if (!selectedStage) return [];
+
+    if (selectedStage === 'Group Stage') {
+      if (!selectedGroup) return [];
+      return matchs['Group Stage'][selectedGroup] || [];
     }
+
+    return matchs[selectedStage] || [];
   };
 
-  const handleSearch = () => {
-    onSearchByMetadata({ stage, group, date, match, players });
+  // 3. Handle Match & NumPasses Change -> Update Sequence Path
+  const updateSequencePath = (matchId, passes) => {
+    if (!matchId) return;
+    const baseFolder = '/data';
+    // Format: "{baseFolder}/{matchID}/fingerprints{numberOfPasses}pass.pkl"
+    const path = `${baseFolder}/${matchId}/fingerprints${passes}pass.pkl`;
+    setSequencePath(path);
+  };
+
+  const handleMatchChange = (e) => {
+    const matchId = e.target.value;
+    setSelectedMatch(matchId);
+    updateSequencePath(matchId, numPasses);
+  };
+
+  const handleNumPassesChange = (e) => {
+    // Only update UI state, do not trigger fetch
+    const passes = parseInt(e.target.value, 10);
+    setNumPasses(passes);
+  };
+
+  const handleNumPassesCommit = () => {
+    // Trigger sequence path update (and subsequent fetch) on slider release
+    updateSequencePath(selectedMatch, numPasses);
+  };
+
+  // 4. Fetch Count when Sequence Path changes
+  useEffect(() => {
+    const fetchCount = async () => {
+      if (!sequencePath) return;
+
+      setIsCountLoading(true);
+      try {
+        // Fetch count
+        const response = await getSequenceCount(sequencePath);
+        if (response && typeof response.sequences_count === 'number') {
+          setMaxSeqIndex(response.sequences_count);
+          setSequenceIndex(0); // Reset index
+        } else {
+          console.warn("Invalid count response:", response);
+          setMaxSeqIndex(0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch sequence count:", error);
+        setMaxSeqIndex(0);
+      } finally {
+        setIsCountLoading(false);
+      }
+    };
+
+    fetchCount();
+  }, [sequencePath]);
+
+  // 5. Handle Sequence Index Change (onRelease)
+  const handleSeqIndexChange = (e) => {
+    setSequenceIndex(parseInt(e.target.value, 10));
+  };
+
+  const handleSeqIndexCommit = async () => {
+    // Trigger detection API
+    try {
+      console.log(`Detecting sequence: Path=${sequencePath}, Index=${sequenceIndex}`);
+      await detectPassSequence({
+        sequence_path: sequencePath,
+        sequence_index: sequenceIndex
+      });
+      // Ignore response as per instructions
+    } catch (error) {
+      console.error("Error triggering detection:", error);
+    }
   };
 
   return (
-    <div className="card glass-card">
-      <div className="card-header">
-        <h5 className="card-title mb-0 d-flex align-items-center gap-2">
-          <Search
-            style={{ width: "20px", height: "20px", color: "var(--primary)" }}
-          />
-          Search Pass Sequences
-        </h5>
-      </div>
-      <div className="card-body">
-        <div className="row g-3 mb-4">
-          {/* Stage */}
-          <div className="col-md-6 col-lg-3">
-            <label className="form-label">Stage</label>
-            <select
-              className="form-select bg-light"
-              value={stage}
-              onChange={(e) => setStage(e.target.value)}
-            >
-              <option value="">Select stage</option>
-              {stages.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Group */}
-          <div className="col-md-6 col-lg-3">
-            <label className="form-label">Group</label>
-            <select
-              className="form-select bg-light"
-              value={group}
-              onChange={(e) => setGroup(e.target.value)}
-              disabled={stage !== "Group Stage"}
-            >
-              <option value="">Select group</option>
-              {groups.map((g) => (
-                <option key={g} value={g}>
-                  Group {g}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date */}
-          <div className="col-md-6 col-lg-3">
-            <label className="form-label">Date</label>
-            <input
-              type="date"
-              className="form-control bg-light"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              min="2022-11-20"
-              max="2022-12-18"
+      <div className="card glass-card p-6">
+        <div className="card-header">
+          <h5 className="card-title text-xl font-bold mb-4 flex items-center gap-2">
+            <Search
+                style={{ width: "20px", height: "20px", color: "var(--primary)" }}
             />
-          </div>
+            Search Match Sequences
+          </h5>
 
-          {/* Match */}
-          <div className="col-md-6 col-lg-3">
-            <label className="form-label">Match</label>
-            <input
-              type="text"
-              className="form-control bg-light"
-              placeholder="e.g., Argentina vs France"
-              value={match}
-              onChange={(e) => setMatch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Players Sequence */}
-        <div className="mb-4">
-          <label className="form-label d-flex align-items-center gap-2">
-            <Users
-              style={{ width: "16px", height: "16px" }}
-              className="text-muted"
-            />
-            Players Sequence (Max 5)
-          </label>
-          <div className="d-flex gap-2 mb-3">
-            <input
-              type="text"
-              className="form-control bg-light"
-              placeholder="Enter player name"
-              value={playerInput}
-              onChange={(e) => setPlayerInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              disabled={players.length >= 5}
-            />
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={handleAddPlayer}
-              disabled={players.length >= 5 || !playerInput.trim()}
-            >
-              <Plus style={{ width: "16px", height: "16px" }} />
-            </button>
-          </div>
-
-          {/* Player Badges */}
-          {players.length > 0 && (
-            <div className="d-flex flex-wrap gap-2 mb-3">
-              {players.map((player, index) => (
-                <span
-                  key={index}
-                  className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-20 d-flex align-items-center gap-2 py-2 px-3"
+          <div className="card-body grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="row g-3 mb-4 w-full">
+              {/* Stage Selection */}
+              <div className="col-md-8 col-lg-4">
+                <label className="form-label block text-sm font-medium mb-1">Stage</label>
+                <select
+                    value={selectedStage}
+                    onChange={handleStageChange}
+                    className="form-select bg-light w-full"
                 >
-                  <span className="text-muted me-1">{index + 1}.</span>
-                  {player}
-                  <button
-                    onClick={() => handleRemovePlayer(index)}
-                    className="btn-close btn-close-sm"
-                    style={{ fontSize: "0.75rem" }}
-                  />
-                </span>
-              ))}
+                  <option value="">Select Stage</option>
+                  {stages.map(stage => (
+                      <option key={stage} value={stage}>{stage}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Group Selection */}
+              <div className="col-md-8 col-lg-4">
+                <label className={`form-label block text-sm font-medium mb-1 ${!isGroupStage ? 'text-gray-500' : ''}`}>
+                  Group
+                </label>
+                <select
+                    value={selectedGroup}
+                    onChange={handleGroupChange}
+                    disabled={!isGroupStage}
+                    className="form-select bg-light w-full"
+                >
+                  <option value="">Select Group</option>
+                  {groups.map(group => (
+                      <option key={group} value={group}>Group {group}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Match Selection */}
+              <div className="col-md-8 col-lg-4">
+                <label className="form-label block text-sm font-medium mb-1">Match</label>
+                <select
+                    value={selectedMatch}
+                    onChange={handleMatchChange}
+                    disabled={!selectedStage || (isGroupStage && !selectedGroup)}
+                    className="form-select bg-light w-full"
+                >
+                  <option value="">Select Match</option>
+                  {getMatchOptions().map(([label, id]) => (
+                      <option key={id} value={id}>{label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-          )}
+          </div>
 
-          {players.length > 1 && (
-            <p className="text-muted small">Sequence: {players.join(" → ")}</p>
-          )}
-        </div>
+          <div className={`grid grid-cols-1 ${maxSeqIndex > 0 ? 'md:grid-cols-2' : ''} gap-8 mb-6`}>
+            {/* Number of Passes Slider */}
+            <div className="form-group">
+              <label className="block text-sm font-medium mb-2">
+                Number of Passes: <span className="text-blue-400 font-bold">{numPasses}</span>
+              </label>
+              <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={numPasses}
+                  onChange={handleNumPassesChange}
+                  onMouseUp={handleNumPassesCommit}
+                  onTouchEnd={handleNumPassesCommit}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
 
-        {/* Action Buttons */}
-        <div className="d-flex flex-column flex-md-row gap-3 pt-3">
-          <button
-            className="btn btn-gradient flex-fill"
-            onClick={handleSearch}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <span className="d-flex align-items-center justify-content-center gap-2">
-                <div className="spinner-border spinner-border-sm" role="status">
-                  <span className="visually-hidden">Loading...</span>
+            {/* Sequence Index Slider (Conditional) */}
+            {maxSeqIndex > 0 && (
+                <div className="form-group animate-fade-in">
+                  <label className="block text-sm font-medium mb-2">
+                    Sequence Index: <span className="text-green-400 font-bold">{sequenceIndex} / {maxSeqIndex}</span>
+                  </label>
+                  <input
+                      type="range"
+                      min="0"
+                      max={maxSeqIndex}
+                      value={sequenceIndex}
+                      onChange={handleSeqIndexChange}
+                      onMouseUp={handleSeqIndexCommit}
+                      onTouchEnd={handleSeqIndexCommit}
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500"
+                  />
                 </div>
-                Searching...
-              </span>
-            ) : (
-              <span className="d-flex align-items-center justify-content-center gap-2">
-                <Search style={{ width: "16px", height: "16px" }} />
-                Find Other Sequences
-              </span>
             )}
-          </button>
-          <button
-            className="btn btn-outline-accent flex-fill"
-            onClick={onUploadSequence}
-            disabled={isLoading}
-          >
-            <Upload
-              style={{ width: "16px", height: "16px" }}
-              className="me-2"
-            />
-            Upload Pass Sequence
-          </button>
+          </div>
+
+          {isCountLoading && (
+              <div className="text-sm text-gray-400 text-center animate-pulse">
+                Fetching sequence data...
+              </div>
+          )}
         </div>
       </div>
-    </div>
   );
 };
 
 export default FifaForm;
-
-<style jsx>{`
-  .glass-card {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
-  }
-
-  .btn-gradient {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-  }
-
-  .btn-outline-accent {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  .btn-outline-accent:hover {
-    background-color: var(--accent);
-    color: white;
-  }
-`}</style>;
